@@ -27,8 +27,15 @@ services:
       - ${OPENCLAW_CONFIG_DIR:-./data}:/config:ro
       # Persistent storage for reports, auth, git worktrees
       - sentinel-pro-data:/data
-      # Source code access (read-only by default, rw for auto-fix)
-      - ${OPENCLAW_WORKSPACE_DIR:-./workspace}:/workspace:ro
+      # Source code access — read-write so the AI CLI can apply fixes directly.
+      # The fix engine always writes to isolated git worktrees (sentinel-pro/fix-*)
+      # and never touches main directly. Set :ro here to disable auto-fix.
+      - ${OPENCLAW_WORKSPACE_DIR:-./workspace}:/workspace
+      # Docker socket — required for `docker restart openclaw-gateway`.
+      # This grants Sentinel Pro the ability to manage host containers.
+      # Acceptable trade-off for a privileged ops sidecar; all API endpoints
+      # are protected by SENTINEL_PRO_TOKEN.
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "${SENTINEL_PRO_PORT:-18791}:18791"
     restart: unless-stopped

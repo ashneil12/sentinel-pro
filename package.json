@@ -1,0 +1,33 @@
+{
+  "name": "@moltbot/sentinel-pro",
+  "version": "0.1.0",
+  "description": "AI-powered debugging sidecar for MoltBot — uses Claude Code or Codex CLI",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fastify": "^5.3.3",
+    "@fastify/websocket": "^11.0.2",
+    "@fastify/cors": "^10.0.2",
+    "cron": "^3.5.0",
+    "ws": "^8.18.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "dotenv": "^16.5.0",
+    "nanoid": "^5.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}
