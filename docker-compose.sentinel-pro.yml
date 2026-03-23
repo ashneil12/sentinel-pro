@@ -1,0 +1,44 @@
+# Sentinel Pro — Docker Compose overlay
+#
+# Use with the main docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.sentinel-pro.yml up
+#
+# Or enable standalone:
+#   docker compose -f docker-compose.sentinel-pro.yml up
+
+services:
+  sentinel-pro:
+    image: ${SENTINEL_PRO_IMAGE:-ghcr.io/ashneil12/moltbot-sentinel-pro:latest}
+    container_name: sentinel-pro
+    environment:
+      SENTINEL_PRO_TOKEN: ${SENTINEL_PRO_TOKEN:-changeme}
+      SENTINEL_PRO_CLI: ${SENTINEL_PRO_CLI:-}
+      OPENCLAW_GATEWAY_URL: http://openclaw-gateway:18789
+      CRON_SCHEDULE: ${SENTINEL_CRON:-0 8,14,20 * * *}
+      TZ: ${OPENCLAW_TZ:-UTC}
+      NODE_ENV: production
+      LOG_LEVEL: ${SENTINEL_LOG_LEVEL:-info}
+      # For Codex CLI (if user prefers OpenAI)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      # Read-only access to OpenClaw logs
+      - ${OPENCLAW_CONFIG_DIR:-./data}/logs:/logs:ro
+      # Read-only access to OpenClaw config
+      - ${OPENCLAW_CONFIG_DIR:-./data}:/config:ro
+      # Persistent storage for reports, auth, git worktrees
+      - sentinel-pro-data:/data
+      # Source code access (read-only by default, rw for auto-fix)
+      - ${OPENCLAW_WORKSPACE_DIR:-./workspace}:/workspace:ro
+    ports:
+      - "${SENTINEL_PRO_PORT:-18791}:18791"
+    restart: unless-stopped
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:18791/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  sentinel-pro-data:
