@@ -12,8 +12,6 @@ env:
 permissions:
   contents: read
   packages: write
-  attestations: write
-  id-token: write
 
 jobs:
   build-and-push:
@@ -28,7 +26,10 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # CR_PAT: a classic PAT with write:packages scope
+          # Create at: github.com/settings/tokens (classic)
+          # Add as repo secret: Settings > Secrets > Actions > CR_PAT
+          password: ${{ secrets.CR_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
@@ -41,11 +42,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          config-inline: |
-            [registry."ghcr.io"]
-              mirrors = []
-          driver-opts: network=host
 
       - name: Build and push
         uses: docker/build-push-action@v6
