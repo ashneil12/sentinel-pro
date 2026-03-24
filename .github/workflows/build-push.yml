@@ -29,7 +29,7 @@ jobs:
           # CR_PAT: a classic PAT with write:packages scope
           # Create at: github.com/settings/tokens (classic)
           # Add as repo secret: Settings > Secrets > Actions > CR_PAT
-          password: ${{ secrets.CR_PAT || secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.CR_PAT }}
 
       - name: Extract metadata
         id: meta
