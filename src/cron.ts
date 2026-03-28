@@ -122,7 +122,7 @@ export async function runAnalysisCycle(
 
       if (restartNeeded) {
         log.info("autopilot restarting gateway to apply fixes");
-        restartGateway(config.gatewayUrl);
+        await restartGateway(config.gatewayUrl);
       }
     }
 

@@ -166,14 +166,14 @@ describe("fix-engine store", () => {
 });
 
 describe("restartGateway", () => {
-  it("rejects invalid gateway URL (command injection prevention)", () => {
-    const result = restartGateway("not-a-valid-url");
+  it("rejects invalid gateway URL (command injection prevention)", async () => {
+    const result = await restartGateway("not-a-valid-url");
     expect(result.success).toBe(false);
     expect(result.error).toContain("Invalid");
   });
 
-  it("rejects non-http protocol URLs", () => {
-    const result = restartGateway("ftp://evil.com");
+  it("rejects non-http protocol URLs", async () => {
+    const result = await restartGateway("ftp://evil.com");
     expect(result.success).toBe(false);
     expect(result.error).toContain("protocol");
   });

@@ -231,7 +231,7 @@ export async function createServer(
     const { id } = request.params as { id: string };
     if (!FIX_ID_PATTERN.test(id)) return reply.code(400).send({ error: "Invalid fix ID" });
     try {
-      const result = rollbackFix(config.dataDir, config.workspaceDir, id);
+      const result = await rollbackFix(config.dataDir, config.workspaceDir, id);
       return { fix: result };
     } catch (err) {
       return reply.code(400).send({
@@ -241,7 +241,7 @@ export async function createServer(
   });
 
   app.post("/api/sentinel-pro/gateway/restart", async (_request) => {
-    return restartGateway(config.gatewayUrl);
+    return await restartGateway(config.gatewayUrl);
   });
 
   // ═══════════════════════════════════════════════════════════════════════

@@ -15,7 +15,10 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execAsync = promisify(execFile);
 import { join } from "node:path";
 import { nanoid } from "nanoid";
 import type { SuggestedFix } from "./adapters/types.js";
@@ -220,11 +223,11 @@ export function rejectFix(
 /**
  * Roll back an applied fix by deleting the worktree branch.
  */
-export function rollbackFix(
+export async function rollbackFix(
   dataDir: string,
   workspaceDir: string,
   fixId: string,
-): FixRecord {
+): Promise<FixRecord> {
   const store = loadStore(dataDir);
   const record = store.fixes.find((f) => f.id === fixId);
 
@@ -238,7 +241,7 @@ export function rollbackFix(
       // Remove worktree and branch
       const worktreePath = join(dataDir, "worktrees", record.id);
       try {
-        execSync(`git worktree remove ${worktreePath} --force`, {
+        await execAsync("git", ["worktree", "remove", worktreePath, "--force"], {
           cwd: workspaceDir,
           timeout: 10_000,
         });
@@ -246,7 +249,7 @@ export function rollbackFix(
         // Worktree may already be gone
       }
       try {
-        execSync(`git branch -D ${record.branch}`, {
+        await execAsync("git", ["branch", "-D", record.branch], {
           cwd: workspaceDir,
           timeout: 5_000,
         });
@@ -314,10 +317,9 @@ async function applyFix(
     }
 
     // Create a new worktree on a fix branch
-    execSync(`git worktree add -b ${branchName} ${worktreePath}`, {
+    await execAsync("git", ["worktree", "add", "-b", branchName, worktreePath], {
       cwd: workspaceDir,
       timeout: 15_000,
-      stdio: "pipe",
     });
 
     // Write the diff to a temp file and apply it
@@ -325,16 +327,14 @@ async function applyFix(
     writeFileSync(diffFile, record.fix.diff);
 
     try {
-      execSync(`git apply --check ${diffFile}`, {
+      await execAsync("git", ["apply", "--check", diffFile], {
         cwd: worktreePath,
         timeout: 10_000,
-        stdio: "pipe",
       });
 
-      execSync(`git apply ${diffFile}`, {
+      await execAsync("git", ["apply", diffFile], {
         cwd: worktreePath,
         timeout: 10_000,
-        stdio: "pipe",
       });
     } catch {
       // If git apply fails, try applying the patch directly to the file
@@ -346,11 +346,15 @@ async function applyFix(
     const safeTitle = record.fix.title
       .replace(/["'`$\\;|&(){}\n\r]/g, "")
       .slice(0, 100);
-    execSync(`git add -A && git commit -m "sentinel-pro: ${safeTitle}"`, {
+      
+    await execAsync("git", ["add", "-A"], {
       cwd: worktreePath,
       timeout: 10_000,
-      stdio: "pipe",
-      shell: "/bin/sh",
+    });
+    
+    await execAsync("git", ["commit", "-m", `sentinel-pro: ${safeTitle}`], {
+      cwd: worktreePath,
+      timeout: 10_000,
     });
 
     // Update record
@@ -371,13 +375,13 @@ async function applyFix(
 
     // Clean up failed worktree
     try {
-      execSync(`git worktree remove ${worktreePath} --force`, {
+      await execAsync("git", ["worktree", "remove", worktreePath, "--force"], {
         cwd: workspaceDir,
         timeout: 10_000,
       });
     } catch { /* ignore */ }
     try {
-      execSync(`git branch -D ${branchName}`, {
+      await execAsync("git", ["branch", "-D", branchName], {
         cwd: workspaceDir,
         timeout: 5_000,
       });
@@ -460,10 +464,10 @@ function applyDiffDirectly(worktreePath: string, fix: SuggestedFix): void {
  * Attempt to restart the gateway container.
  * This is a privileged operation — requires docker socket access.
  */
-export function restartGateway(gatewayUrl: string): {
+export async function restartGateway(gatewayUrl: string): Promise<{
   success: boolean;
   error?: string;
-} {
+}> {
   // Validate the gateway URL to prevent command injection
   let validatedUrl: string;
   try {
@@ -478,20 +482,21 @@ export function restartGateway(gatewayUrl: string): {
 
   try {
     // Try docker restart first (no user input in command)
-    execSync("docker restart openclaw-gateway", {
+    await execAsync("docker", ["restart", "openclaw-gateway"], {
       timeout: 30_000,
-      stdio: "pipe",
     });
     log.info("gateway restarted via docker");
     return { success: true };
   } catch {
     // Fallback: use fetch API instead of exec'd curl to avoid injection
     try {
-      // Use synchronous approach with curl but with validated URL
-      execSync(`curl -sf -X POST '${validatedUrl.replace(/'/g, "'\\'")}/admin/restart'`, {
-        timeout: 10_000,
-        stdio: "pipe",
+      const resp = await fetch(`${validatedUrl}/admin/restart`, {
+        method: "POST",
+        signal: AbortSignal.timeout(10_000),
       });
+      if (!resp.ok) {
+         throw new Error(`HTTP error! status: ${resp.status}`);
+      }
       log.info("gateway restarted via API");
       return { success: true };
     } catch (err) {
