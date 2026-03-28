@@ -30,6 +30,8 @@ export interface SentinelProConfig {
   maxLogLines: number;
   /** Time zone for cron and display */
   timezone: string;
+  /** If true, Sentinel Pro will automatically apply fixes and restart the gateway */
+  autopilotMode: boolean;
 }
 
 export function loadConfig(): SentinelProConfig {
@@ -55,6 +57,7 @@ export function loadConfig(): SentinelProConfig {
     gatewayUrl: env.OPENCLAW_GATEWAY_URL ?? "http://openclaw-gateway:18789",
     maxLogLines: parseInt(env.SENTINEL_PRO_MAX_LOG_LINES ?? "500", 10),
     timezone: env.TZ ?? "UTC",
+    autopilotMode: env.SENTINEL_PRO_AUTOPILOT === "true" || env.SENTINEL_PRO_AUTOPILOT === "1",
   };
 }
 

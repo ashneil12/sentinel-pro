@@ -99,6 +99,7 @@ export class ClaudeCodeAdapter implements CliAdapter {
       const args = [
         "--print",         // non-interactive, print output
         "--model", "opus", // default to best model
+        "--yes",           // auto-approve tool execution for full autonomous visibility
       ];
 
       if (request.workdir) {

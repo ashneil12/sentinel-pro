@@ -11,6 +11,7 @@ import type { CliAdapter, AnalysisResult } from "./adapters/types.js";
 import type { SentinelProConfig } from "./config.js";
 import { ingestLogs, formatLogContext } from "./log-ingester.js";
 import { storeReport, type StoredReport } from "./report-store.js";
+import { approveFix, restartGateway, registerFixesFromReport } from "./fix-engine.js";
 import { SYSTEM_PROMPTS } from "./prompts/index.js";
 import { logger } from "./logger.js";
 
@@ -61,6 +62,7 @@ export async function runAnalysisCycle(
       logsDir: config.logsDir,
       maxLogLines: config.maxLogLines,
       hoursBack: opts?.hoursBack ?? 12,
+      includeAll: config.autopilotMode, // In autopilot, see full context
     });
 
     if (logWindow.totalLines === 0) {
@@ -101,8 +103,28 @@ export async function runAnalysisCycle(
       workdir: config.workspaceDir,
     });
 
-    // 5. Store report
+    // 5. Build report & register fixes
     const report = storeReport(result, trigger, config.dataDir);
+    const registeredFixes = registerFixesFromReport(config.dataDir, report.id, result.fixes);
+
+    if (config.autopilotMode && registeredFixes.length > 0) {
+      log.info({ fixes: registeredFixes.length }, "autopilot mode enabled — applying fixes automatically");
+      
+      let restartNeeded = false;
+      for (const fix of registeredFixes) {
+        try {
+          await approveFix(config.dataDir, config.workspaceDir, fix.id, "autopilot");
+          restartNeeded = true;
+        } catch (err) {
+          log.error({ fixId: fix.id, error: String(err) }, "autopilot failed to apply fix");
+        }
+      }
+
+      if (restartNeeded) {
+        log.info("autopilot restarting gateway to apply fixes");
+        restartGateway(config.gatewayUrl);
+      }
+    }
 
     state.lastResult = report;
     state.lastRun = new Date();
